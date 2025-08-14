@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animated Unit Converter</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #111;
+    color: #fff;
+    font-family: sans-serif;
+    height: 100%;
+    overflow: hidden;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  #top-bar {
+    padding: 10px;
+    background: #222;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+  #canvas {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #222, #000);
+  }
+  .unit-icon {
+    width: 80px;
+    height: 80px;
+    position: absolute;
+    border-radius: 50%;
+    cursor: grab;
+    user-select: none;
+  }
+  #bottom-bar {
+    background: #222;
+    padding: 10px;
+    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 8px 12px;
+    margin: 5px;
+    background: #444;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #666;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top-bar">Animated Unit Converter</div>
+  <div id="canvas"></div>
+  <div id="bottom-bar">
+    <button data-unit="celsius">Add °C</button>
+    <button data-unit="fahrenheit">Add °F</button>
+    <button data-unit="meters">Add m</button>
+    <button data-unit="feet">Add ft</button>
+    <button data-unit="kilograms">Add kg</button>
+    <button data-unit="pounds">Add lb</button>
+  </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.10.2/lottie.min.js"></script>
+
+<script>
+// ==== Unit Definitions ====
+const units = {
+  celsius: {
+    label: "°C",
+    category: "temperature",
+    toBase: v => v, // Base: Celsius
+    fromBase: v => v,
+    lottie: "https://assets4.lottiefiles.com/packages/lf20_jtbfg2nb.json"
+  },
+  fahrenheit: {
+    label: "°F",
+    category: "temperature",
+    toBase: v => (v - 32) * 5/9,
+    fromBase: v => v * 9/5 + 32,
+    lottie: "https://assets4.lottiefiles.com/packages/lf20_fyye8szy.json"
+  },
+  meters: {
+    label: "m",
+    category: "length",
+    toBase: v => v, // Base: meters
+    fromBase: v => v,
+    lottie: "https://assets4.lottiefiles.com/packages/lf20_5i1oyl.json"
+  },
+  feet: {
+    label: "ft",
+    category: "length",
+    toBase: v => v / 3.28084,
+    fromBase: v => v * 3.28084,
+    lottie: "https://assets2.lottiefiles.com/packages/lf20_j1adxtyb.json"
+  },
+  kilograms: {
+    label: "kg",
+    category: "mass",
+    toBase: v => v, // Base: kg
+    fromBase: v => v,
+    lottie: "https://assets2.lottiefiles.com/packages/lf20_zrqthn6o.json"
+  },
+  pounds: {
+    label: "lb",
+    category: "mass",
+    toBase: v => v / 2.20462,
+    fromBase: v => v * 2.20462,
+    lottie: "https://assets2.lottiefiles.com/packages/lf20_nw19osms.json"
+  }
+};
+
+const canvas = document.getElementById('canvas');
+const buttons = document.querySelectorAll('#bottom-bar button');
+
+// Spawn icon on click
+buttons.forEach(btn => {
+  btn.addEventListener('click', () => addUnitIcon(btn.dataset.unit));
+});
+
+// Add a draggable animated unit icon
+function addUnitIcon(type) {
+  const wrapper = document.createElement('div');
+  wrapper.classList.add('unit-icon');
+  wrapper.style.left = Math.random() * (canvas.clientWidth - 80) + 'px';
+  wrapper.style.top = Math.random() * (canvas.clientHeight - 80) + 'px';
+  wrapper.dataset.unit = type;
+  wrapper.dataset.value = 1; // Default value
+
+  canvas.appendChild(wrapper);
+
+  // Load Lottie animation
+  lottie.loadAnimation({
+    container: wrapper,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: units[type].lottie
+  });
+
+  Draggable.create(wrapper, {
+    bounds: canvas,
+    inertia: true,
+    onPress() { this.target.style.zIndex = 1000; },
+    onRelease() { this.target.style.zIndex = ''; checkCollisions(); }
+  });
+
+  gsap.from(wrapper, { scale: 0, duration: 0.4, ease: "back.out(1.7)" });
+}
+
+// Check if two icons collide
+function checkCollisions() {
+  const icons = Array.from(document.querySelectorAll('.unit-icon'));
+  for (let i = 0; i < icons.length; i++) {
+    for (let j = i + 1; j < icons.length; j++) {
+      if (isColliding(icons[i], icons[j])) {
+        tryConversion(icons[i], icons[j]);
+      }
+    }
+  }
+}
+
+function isColliding(a, b) {
+  const rectA = a.getBoundingClientRect();
+  const rectB = b.getBoundingClientRect();
+  return !(
+    rectA.top > rectB.bottom ||
+    rectA.bottom < rectB.top ||
+    rectA.left > rectB.right ||
+    rectA.right < rectB.left
+  );
+}
+
+// Try converting if units share a category
+function tryConversion(a, b) {
+  const unitA = units[a.dataset.unit];
+  const unitB = units[b.dataset.unit];
+
+  if (unitA.category !== unitB.category) return; // No conversion
+
+  const valA = parseFloat(a.dataset.value);
+  const baseVal = unitA.toBase(valA);
+  const result = unitB.fromBase(baseVal);
+
+  animateMerge(a, b, result, unitB.label);
+}
+
+function animateMerge(a, b, value, label) {
+  gsap.to([a, b], { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 });
+  showConversionResult(
+    (a.offsetLeft + b.offsetLeft) / 2,
+    (a.offsetTop + b.offsetTop) / 2,
+    value.toFixed(2) + " " + label
+  );
+}
+
+function showConversionResult(x, y, text) {
+  const bubble = document.createElement('div');
+  bubble.textContent = text;
+  bubble.style.position = 'absolute';
+  bubble.style.left = x + 'px';
+  bubble.style.top = y + 'px';
+  bubble.style.fontSize = '1.2em';
+  bubble.style.background = 'rgba(255,255,255,0.2)';
+  bubble.style.padding = '4px 8px';
+  bubble.style.borderRadius = '8px';
+  canvas.appendChild(bubble);
+  gsap.to(bubble, { y: -40, opacity: 0, duration: 1.2, onComplete: () => bubble.remove() });
+}
+</script>
+</body>
+</html>
